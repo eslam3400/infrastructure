@@ -18,12 +18,14 @@
       "version": "24"
     },
     "ghcr.io/devcontainers/features/docker-in-docker:4.1.1": {},
-    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {},
+    "ghcr.io/devcontainer-community/devcontainer-features/hermes-agent.nousresearch.com:1": {}
   },
   "overrideFeatureInstallOrder": [
     "ghcr.io/devcontainers/features/common-utils",
     "ghcr.io/devcontainers/features/node",
-    "ghcr.io/anthropics/devcontainer-features/claude-code"
+    "ghcr.io/anthropics/devcontainer-features/claude-code",
+    "ghcr.io/devcontainer-community/devcontainer-features/hermes-agent.nousresearch.com"
   ],
   "postCreateCommand": "bash .devcontainer/post-create.sh",
   "customizations": {
