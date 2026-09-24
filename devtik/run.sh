@@ -17,3 +17,6 @@ docker run -d \
   --entrypoint /usr/local/share/docker-init.sh \
   devtik-sandbox \
   sleep infinity
+
+# Run post-create setup (SSH key, tools); raw docker run skips the devcontainer lifecycle
+docker exec devtik-sandbox bash /workspaces/devtik/.devcontainer/post-create.sh

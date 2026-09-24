@@ -17,3 +17,6 @@ docker run -d \
   --entrypoint /usr/local/share/docker-init.sh \
   vectora-sandbox \
   sleep infinity
+
+# Run post-create setup (SSH key, tools); raw docker run skips the devcontainer lifecycle
+docker exec vectora-sandbox bash /workspaces/vectora/.devcontainer/post-create.sh

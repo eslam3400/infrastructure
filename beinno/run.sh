@@ -17,3 +17,6 @@ docker run -d \
   --entrypoint /usr/local/share/docker-init.sh \
   beinno-sandbox \
   sleep infinity
+
+# Run post-create setup (SSH key, tools); raw docker run skips the devcontainer lifecycle
+docker exec beinno-sandbox bash /workspaces/beinno/.devcontainer/post-create.sh

@@ -17,3 +17,6 @@ docker run -d \
   --entrypoint /usr/local/share/docker-init.sh \
   flyakeed-sandbox \
   sleep infinity
+
+# Run post-create setup (SSH key, tools); raw docker run skips the devcontainer lifecycle
+docker exec flyakeed-sandbox bash /workspaces/flyakeed/.devcontainer/post-create.sh
