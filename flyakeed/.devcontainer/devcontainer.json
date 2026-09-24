@@ -1,0 +1,33 @@
+{
+  "name": "flyakeed sandbox",
+  "image": "flyakeed-sandbox",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "runArgs": [
+    "--name",
+    "flyakeed-sandbox"
+  ],
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": true,
+      "username": "ubuntu"
+    },
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/docker-in-docker:4.1.1": {}
+  },
+  "overrideFeatureInstallOrder": [
+    "ghcr.io/devcontainers/features/common-utils"
+  ],
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-azuretools.vscode-containers",
+        "bmewburn.vscode-intelephense-client",
+        "dbaeumer.vscode-eslint"
+      ]
+    }
+  },
+  "remoteUser": "ubuntu"
+}
