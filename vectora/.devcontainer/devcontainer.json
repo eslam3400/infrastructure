@@ -9,10 +9,6 @@
     "vectora-sandbox"
   ],
   "features": {
-    "ghcr.io/devcontainers/features/common-utils:2": {
-      "installZsh": true,
-      "username": "ubuntu"
-    },
     "ghcr.io/devcontainers/features/git:1": {},
     "ghcr.io/devcontainers/features/node:2.1.0": {
       "version": "24"
@@ -22,10 +18,8 @@
     "ghcr.io/devcontainer-community/devcontainer-features/hermes-agent.nousresearch.com:1": {}
   },
   "overrideFeatureInstallOrder": [
-    "ghcr.io/devcontainers/features/common-utils",
     "ghcr.io/devcontainers/features/node",
-    "ghcr.io/anthropics/devcontainer-features/claude-code",
-    "ghcr.io/devcontainer-community/devcontainer-features/hermes-agent.nousresearch.com"
+    "ghcr.io/anthropics/devcontainer-features/claude-code"
   ],
   "postCreateCommand": "bash .devcontainer/post-create.sh",
   "customizations": {
@@ -35,6 +29,5 @@
         "streetsidesoftware.code-spell-checker"
       ]
     }
-  },
-  "remoteUser": "ubuntu"
+  }
 }

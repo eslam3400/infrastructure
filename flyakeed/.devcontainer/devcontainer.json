@@ -9,18 +9,10 @@
     "flyakeed-sandbox"
   ],
   "features": {
-    "ghcr.io/devcontainers/features/common-utils:2": {
-      "installZsh": true,
-      "username": "ubuntu"
-    },
     "ghcr.io/devcontainers/features/git:1": {},
     "ghcr.io/devcontainers/features/docker-in-docker:4.1.1": {},
     "ghcr.io/devcontainer-community/devcontainer-features/hermes-agent.nousresearch.com:1": {}
   },
-  "overrideFeatureInstallOrder": [
-    "ghcr.io/devcontainers/features/common-utils",
-    "ghcr.io/devcontainer-community/devcontainer-features/hermes-agent.nousresearch.com"
-  ],
   "postCreateCommand": "bash .devcontainer/post-create.sh",
   "customizations": {
     "vscode": {
@@ -30,6 +22,5 @@
         "dbaeumer.vscode-eslint"
       ]
     }
-  },
-  "remoteUser": "ubuntu"
+  }
 }
