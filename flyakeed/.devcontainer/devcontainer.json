@@ -10,7 +10,9 @@
   ],
   "features": {
     "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {},
     "ghcr.io/devcontainers/features/docker-in-docker:4.1.1": {},
+    "ghcr.io/masterkoppa/kiro-cli-devcontainer-feature/kiro-cli:1": {},
     "ghcr.io/devcontainer-community/devcontainer-features/hermes-agent.nousresearch.com:1": {}
   },
   "postCreateCommand": "bash .devcontainer/post-create.sh",
