@@ -136,6 +136,7 @@ services:
     working_dir: /workspaces/personal
     ports:
       - "9229:9119"
+      - "4096:4096"
     environment:
       - HERMES_DASHBOARD=1
       - HERMES_DASHBOARD_BASIC_AUTH_USERNAME=${HERMES_USERNAME}

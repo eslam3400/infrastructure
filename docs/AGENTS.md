@@ -90,7 +90,7 @@ Three logical groups (server stack):
 
 Server routing is hostname-based, so **every service needs a DNS A record**
 (`traefik`, `portainer`, `dbgate`, `storage`, `s3`,
-`postgres`, `mongodb`, `redis`, and the sandbox `hermes.personal` — all under
+`postgres`, `mongodb`, `redis`, and the sandbox `hermes.personal` / `opencode.personal` — all under
 `${DOMAIN}`, all pointing at the host's public IP).
 
 ## Sandboxes
@@ -132,6 +132,9 @@ alone — any other tool pulls them in too).
   a container recreation, re-run that command. Its dashboard is
   self-authenticated via the plain `HERMES_USERNAME` / `HERMES_PASSWORD` creds
   and routed at `hermes.personal.${DOMAIN}` (server) / `9229:9119` (local).
+  The personal sandbox also exposes opencode's dashboard on port `4096`
+  (`opencode web --hostname 0.0.0.0 --port 4096`) — routed at
+  `opencode.personal.${DOMAIN}` (server) / `4096:4096` (local); no autostart.
 - **Rebuild after changing the Dockerfile:** `docker compose build` then
   `docker compose up -d`. Tool state is preserved in the volume.
 - **Full reset:** remove the container and its state volume

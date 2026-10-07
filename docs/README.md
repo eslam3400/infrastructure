@@ -27,6 +27,7 @@ Set `DOMAIN` in `.env`; the hostnames below are all `<name>.${DOMAIN}`.
 | DBgate | dbgate/dbgate | `https://dbgate.${DOMAIN}` | `dbgate_config` |
 | Traefik dashboard | (built-in) | `https://traefik.${DOMAIN}` (basic auth) | — |
 | personal sandbox Hermes | sandbox-base:latest (shared sandbox image) | `https://hermes.personal.${DOMAIN}` (Hermes basic auth via env) | `personal-sandbox` |
+| personal sandbox opencode | sandbox-base:latest (shared sandbox image) | `https://opencode.personal.${DOMAIN}` (opencode server; optional basic auth) | `personal-sandbox` |
 
 ### Databases & storage
 
@@ -58,7 +59,7 @@ pointing at the server's public IP:
 traefik.${DOMAIN}    portainer.${DOMAIN}   dbgate.${DOMAIN}
 storage.${DOMAIN}    s3.${DOMAIN}
 postgres.${DOMAIN}   mongodb.${DOMAIN}     redis.${DOMAIN}
-hermes.personal.${DOMAIN}
+hermes.personal.${DOMAIN}    opencode.personal.${DOMAIN}
 ```
 
 Let's Encrypt (TLS-ALPN-01) issues certs only after DNS resolves to this host
@@ -110,6 +111,7 @@ docker compose -f compose.local.yaml up -d
 | MongoDB | `localhost:27017` (non-TLS) |
 | Redis | `localhost:6379` (non-TLS) |
 | personal sandbox Hermes | `http://localhost:9229` (Hermes basic auth via env; runs inside personal-sandbox) |
+| personal sandbox opencode | `http://localhost:4096` (opencode dashboard; runs inside personal-sandbox) |
 
 ---
 

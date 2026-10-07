@@ -67,6 +67,7 @@ their workspace.
 | flyakeed | node 26 (nvm), gh, kiro-cli                | idle                 | —             | —                                     |
 | vectora  | node 26 (nvm), claude-code, cursor-agent   | idle                 | —             | —                                     |
 | personal | node 26 (nvm), gh, opencode, hermes        | hermes gateway :9119 | `9229 → 9119` | `https://hermes.personal.${DOMAIN}`   |
+| personal | (opencode dashboard, port exposed)         | opencode web :4096   | `4096 → 4096` | `https://opencode.personal.${DOMAIN}` |
 
 All sandboxes are idle toolboxes; enter one with `docker compose exec <slug>-sandbox bash`.
 Tools are installed on demand with `./setup.sh <slug> <tool>...` (one shared
@@ -74,6 +75,15 @@ script — run `./setup.sh` to print the tool list). The personal sandbox's
 Hermes gateway runs **inside** the sandbox: `./setup.sh personal hermes`
 installs it and starts `hermes gateway run` + the dashboard; after the
 container is recreated, re-run that command to start them again.
+
+The personal sandbox also exposes **opencode's dashboard** on port 4096. Start
+it inside the sandbox with:
+```bash
+docker compose exec personal-sandbox opencode web --hostname 0.0.0.0 --port 4096
+```
+then open `http://localhost:4096` (local stack). It binds `0.0.0.0`, so anyone
+who can reach the host port can use it — set `OPENCODE_SERVER_PASSWORD` to
+require basic auth (`OPENCODE_SERVER_USERNAME` defaults to `opencode`).
 
 Inside a sandbox you are **root** (uid 0), running with your host user's group
 (gid 1000) and `umask 002`. So files created in the bind-mounted workspace —

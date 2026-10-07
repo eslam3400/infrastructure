@@ -232,6 +232,10 @@ services:
       traefik.http.routers.personal-hermes.entrypoints: websecure
       traefik.http.routers.personal-hermes.tls.certresolver: le
       traefik.http.services.personal-hermes.loadbalancer.server.port: "9119"
+      traefik.http.routers.personal-opencode.rule: "Host(`opencode.personal.${DOMAIN}`)"
+      traefik.http.routers.personal-opencode.entrypoints: websecure
+      traefik.http.routers.personal-opencode.tls.certresolver: le
+      traefik.http.services.personal-opencode.loadbalancer.server.port: "4096"
 
 networks:
   default:
