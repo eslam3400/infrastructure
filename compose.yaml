@@ -1,4 +1,5 @@
 name: infrastructure
+
 services:
   traefik:
     container_name: traefik
@@ -171,71 +172,18 @@ services:
       traefik.http.routers.rustfs-s3.service: rustfs-s3-svc
       traefik.http.services.rustfs-s3-svc.loadbalancer.server.port: "9000"
 
-  # --- Sandbox playgrounds -------------------------------------------------
-  # Disposable toolboxes for AI agents. Each runs as root (uid 0) with the
-  # host user's group (1000) and mounts a host workspace directory
-  # (set *_WORKSPACES_PATH in .env) plus a persistent HOME volume at /root so
-  # tool state (gh/opencode/hermes/...) survives container recreation. All
-  # three share the root Dockerfile; tools are installed at runtime via
-  # ./setup.sh <slug> <tool>... See README.md.
-
-  flyakeed-sandbox:
+  sandbox:
     build:
       context: .
       dockerfile: Dockerfile
-    image: sandbox-base:latest
-    container_name: flyakeed-sandbox
+    image: sandbox:latest
+    container_name: sandbox
     restart: unless-stopped
-    user: "0:1000"
     command: sleep infinity
-    working_dir: /workspaces/flyakeed
+    working_dir: /workspaces/sandbox
     volumes:
-      - ${FLYAKEED_WORKSPACES_PATH}:/workspaces/flyakeed
-      - flyakeed-sandbox:/root
-
-  vectora-sandbox:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: sandbox-base:latest
-    container_name: vectora-sandbox
-    restart: unless-stopped
-    user: "0:1000"
-    command: sleep infinity
-    working_dir: /workspaces/vectora
-    volumes:
-      - ${VECTORA_WORKSPACES_PATH}:/workspaces/vectora
-      - vectora-sandbox:/root
-
-  # Hermes gateway runs inside this sandbox (installed/started via
-  # `./setup.sh personal hermes`).
-  personal-sandbox:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: sandbox-base:latest
-    container_name: personal-sandbox
-    restart: unless-stopped
-    user: "0:1000"
-    command: sleep infinity
-    working_dir: /workspaces/personal
-    environment:
-      - HERMES_DASHBOARD=1
-      - HERMES_DASHBOARD_BASIC_AUTH_USERNAME=${HERMES_USERNAME}
-      - HERMES_DASHBOARD_BASIC_AUTH_PASSWORD=${HERMES_PASSWORD}
-    volumes:
-      - ${PERSONAL_WORKSPACES_PATH}:/workspaces/personal
-      - personal-sandbox:/root
-    labels:
-      traefik.enable: "true"
-      traefik.http.routers.personal-hermes.rule: "Host(`hermes.personal.${DOMAIN}`)"
-      traefik.http.routers.personal-hermes.entrypoints: websecure
-      traefik.http.routers.personal-hermes.tls.certresolver: le
-      traefik.http.services.personal-hermes.loadbalancer.server.port: "9119"
-      traefik.http.routers.personal-opencode.rule: "Host(`opencode.personal.${DOMAIN}`)"
-      traefik.http.routers.personal-opencode.entrypoints: websecure
-      traefik.http.routers.personal-opencode.tls.certresolver: le
-      traefik.http.services.personal-opencode.loadbalancer.server.port: "4096"
+      - ${HOST_WORKSPACES_PATH}:/workspaces/sandbox
+      - sandbox_data:/root
 
 networks:
   default:
@@ -250,6 +198,4 @@ volumes:
   mongodb_data:
   redis_data:
   rustfs_data:
-  flyakeed-sandbox:
-  vectora-sandbox:
-  personal-sandbox:
+  sandbox_data:

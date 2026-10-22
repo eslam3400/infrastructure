@@ -1,9 +1,22 @@
-ARG UBUNTU_TAG=24.04
-FROM ubuntu:${UBUNTU_TAG}
+FROM node:24
 
-# Sandboxes run as root (uid 0) with the host user's group (1000, set in the
-# compose files) and umask 002, so files written into the bind-mounted
-# workspaces are root:eslam and group-writable — they stay editable and
-# committable from the host as the normal user.
-RUN printf 'umask 002\n' >> /etc/bash.bashrc \
-  && printf 'umask 002\n' > /etc/profile.d/00-umask.sh
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+      ca-certificates \
+      curl \
+      git \
+      openssh-client \
+      nano \
+      jq \
+      ripgrep \
+      less \
+      unzip \
+      xz-utils \
+      gnupg \
+      procps \
+      libatomic1 \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN npm config set prefix /root/.local
+ENV PATH=/root/.local/bin:$PATH

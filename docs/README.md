@@ -26,8 +26,7 @@ Set `DOMAIN` in `.env`; the hostnames below are all `<name>.${DOMAIN}`.
 | Portainer | portainer/portainer-ce | `https://portainer.${DOMAIN}` | `portainer_data` |
 | DBgate | dbgate/dbgate | `https://dbgate.${DOMAIN}` | `dbgate_config` |
 | Traefik dashboard | (built-in) | `https://traefik.${DOMAIN}` (basic auth) | — |
-| personal sandbox Hermes | sandbox-base:latest (shared sandbox image) | `https://hermes.personal.${DOMAIN}` (Hermes basic auth via env) | `personal-sandbox` |
-| personal sandbox opencode | sandbox-base:latest (shared sandbox image) | `https://opencode.personal.${DOMAIN}` (opencode server; optional basic auth) | `personal-sandbox` |
+| sandbox | sandbox-base:latest (shared sandbox image) | — (no public route; `docker compose exec sandbox bash`) | `sandbox` |
 
 ### Databases & storage
 
@@ -59,7 +58,6 @@ pointing at the server's public IP:
 traefik.${DOMAIN}    portainer.${DOMAIN}   dbgate.${DOMAIN}
 storage.${DOMAIN}    s3.${DOMAIN}
 postgres.${DOMAIN}   mongodb.${DOMAIN}     redis.${DOMAIN}
-hermes.personal.${DOMAIN}    opencode.personal.${DOMAIN}
 ```
 
 Let's Encrypt (TLS-ALPN-01) issues certs only after DNS resolves to this host
@@ -166,34 +164,36 @@ docker compose up -d traefik
 
 ### 4. Deploy the full stack
 
-The sandboxes share one image built from the root `Dockerfile`, so build (or
-rebuild) it once, then bring everything up:
-
 ```bash
-docker compose build      # build the shared sandbox image
+docker compose build      # shared sandbox-base image (same Dockerfile as the local stack)
 docker compose up -d
 ```
 
-Sandboxes start empty — install each one's tools at runtime (idempotent):
+The server stack runs the infrastructure **plus one shared `sandbox`** (no
+public route — reach it with `docker compose exec sandbox bash`). The three
+slug sandboxes live in the local stack (compose.local.yaml):
 
 ```bash
-./setup.sh flyakeed node gh kiro            # flyakeed tools
-./setup.sh vectora node claude cursor       # vectora tools
-./setup.sh personal node gh opencode hermes # personal tools + hermes gateway
+docker compose -f compose.local.yaml build
+docker compose -f compose.local.yaml up -d
 ```
+
+Sandboxes come with Node.js LTS and the basics baked in (git, curl,
+openssh-client, nano, ...) — install anything else inside the sandbox as you
+need it (one-liners in the main README's Sandboxes section).
 
 Or via Portainer: **Stacks → Add stack**, name it `infrastructure`, paste the
 contents of `compose.yaml`, and **Deploy the stack**.
 
 ### 5. Configure Hermes Agent (one-time)
 
-Hermes runs **inside the personal sandbox** (installed by `./setup.sh personal
-hermes`). Its model provider and default model are chosen once and written into
-the sandbox's state volume (`~/.hermes`). After the sandbox is up, run the
-interactive picker against it:
+Hermes runs **inside the personal sandbox**. Install it inside the sandbox
+(one-liner in the main README's Sandboxes section), then choose its model
+provider and default model once — they are written into the sandbox's state
+volume (`~/.hermes`), so they persist across container recreation:
 
 ```bash
-docker compose exec -it personal-sandbox hermes model
+docker compose -f compose.local.yaml exec -it personal-sandbox hermes model
 #  → pick a provider and a model
 ```
 
@@ -215,12 +215,14 @@ HERMES_PASSWORD=changeme
 `dashboard_auth/basic` provider). Restart the sandbox after changing them:
 
 ```bash
-docker compose restart personal-sandbox
-./setup.sh personal hermes      # restart the gateway + dashboard
+docker compose -f compose.local.yaml restart personal-sandbox
+# then start the gateway again inside the sandbox (no reinstall needed):
+docker compose -f compose.local.yaml exec -d personal-sandbox \
+  bash -c 'nohup hermes gateway run >>~/.hermes/gateway.log 2>&1'
 ```
 
-Then reach the dashboard at `https://hermes.personal.${DOMAIN}` (Hermes basic
-auth), or `http://localhost:9229` on the local stack.
+Then reach the dashboard at `http://localhost:9229` (Hermes basic auth via env)
+on the local stack.
 
 ### Connecting to the data services
 
@@ -285,7 +287,8 @@ volumes. Either back them up with a temporary helper container:
 # On old device: stop the stack, then export each volume to a tarball
 docker compose down
 for v in traefik_certs portainer_data dbgate_config \
-         postgres_data mongodb_data redis_data rustfs_data; do
+         postgres_data mongodb_data redis_data rustfs_data \
+         flyakeed-sandbox vectora-sandbox personal-sandbox; do
   docker run --rm -v "infrastructure_${v}:/vol" -v "$PWD:/backup" alpine \
     tar czf "/backup/${v}.tgz" -C /vol .
 done
@@ -314,10 +317,9 @@ docker cp ./mongodump mongodb:/tmp/mongodump && \
 workspace/
 ├── .env.example          # Secrets + workspace-path template — copy to .env and fill in
 ├── README.md             # Repo overview + sandbox/security quickstart
-├── Dockerfile            # The sandbox image — builds all three sandboxes
-├── compose.yaml          # SERVER stack (Traefik-fronted): portainer + dbgate + postgres + mongodb + redis + rustfs + sandboxes
-├── compose.local.yaml    # LOCAL stack (host ports, no Traefik)
-├── setup.sh              # Install selected tools into a sandbox (one shared script)
+├── Dockerfile            # The sandbox base image (Node.js 24 LTS + basic tooling)
+├── compose.yaml          # SERVER stack (Traefik-fronted): portainer + dbgate + postgres + mongodb + redis + rustfs (no sandboxes)
+├── compose.local.yaml    # LOCAL stack (host ports, no Traefik) — also where the sandboxes live
 └── docs/
     ├── README.md         # This file
     ├── INTEGRATION.md    # How a separate app repo connects to the DBs + Traefik

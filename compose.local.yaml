@@ -96,54 +96,44 @@ services:
       retries: 3
       start_period: 40s
 
-  flyakeed-sandbox:
+  flyakeed:
     build:
       context: .
       dockerfile: Dockerfile
-    image: sandbox-base:latest
-    container_name: flyakeed-sandbox
+    image: sandbox:latest
+    container_name: flyakeed
     restart: unless-stopped
-    user: "0:1000"
     command: sleep infinity
-    working_dir: /workspaces/flyakeed
+    working_dir: /workspace
     volumes:
-      - ${FLYAKEED_WORKSPACES_PATH}:/workspaces/flyakeed
-      - flyakeed-sandbox:/root
+      - ${HOST_WORKSPACES_PATH}/flyakeed:/workspace
+      - flyakeed_data:/root
 
-  vectora-sandbox:
+  vectora:
     build:
       context: .
       dockerfile: Dockerfile
-    image: sandbox-base:latest
-    container_name: vectora-sandbox
+    image: sandbox:latest
+    container_name: vectora
     restart: unless-stopped
-    user: "0:1000"
     command: sleep infinity
-    working_dir: /workspaces/vectora
+    working_dir: /workspace
     volumes:
-      - ${VECTORA_WORKSPACES_PATH}:/workspaces/vectora
-      - vectora-sandbox:/root
+      - ${HOST_WORKSPACES_PATH}/vectora:/workspace
+      - vectora_data:/root
 
-  personal-sandbox:
+  personal:
     build:
       context: .
       dockerfile: Dockerfile
-    image: sandbox-base:latest
-    container_name: personal-sandbox
+    image: sandbox:latest
+    container_name: personal
     restart: unless-stopped
-    user: "0:1000"
     command: sleep infinity
-    working_dir: /workspaces/personal
-    ports:
-      - "9229:9119"
-      - "4096:4096"
-    environment:
-      - HERMES_DASHBOARD=1
-      - HERMES_DASHBOARD_BASIC_AUTH_USERNAME=${HERMES_USERNAME}
-      - HERMES_DASHBOARD_BASIC_AUTH_PASSWORD=${HERMES_PASSWORD}
+    working_dir: /workspace
     volumes:
-      - ${PERSONAL_WORKSPACES_PATH}:/workspaces/personal
-      - personal-sandbox:/root
+      - ${HOST_WORKSPACES_PATH}/personal:/workspace
+      - personal_data:/root
 
 networks:
   default:
@@ -157,6 +147,6 @@ volumes:
   mongodb_data:
   redis_data:
   rustfs_data:
-  flyakeed-sandbox:
-  vectora-sandbox:
-  personal-sandbox:
+  flyakeed_data:
+  vectora_data:
+  personal_data:

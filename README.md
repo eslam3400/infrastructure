@@ -4,23 +4,23 @@ A self-hosted development workspace built on two mutually exclusive Docker
 Compose stacks and a set of disposable **sandbox** containers for AI agents.
 
 - **`compose.yaml`** — the **server** stack. Everything is fronted by Traefik
-  (Let's Encrypt HTTPS), reached by hostname under a single domain.
+  (Let's Encrypt HTTPS), reached by hostname under a single domain. It also
+  runs one shared **sandbox** (no Traefik route).
 - **`compose.local.yaml`** — the **local** stack. No Traefik; every service
-  binds a plain localhost/host port.
+  binds a plain localhost/host port. The three slug **sandboxes** live here
+  only.
 
 Both stacks include the same infrastructure services (Portainer, DBgate,
-PostgreSQL, MongoDB, Redis, RustFS) and the same three sandboxes. Hermes Agent
-runs inside the `personal` sandbox (see below), not as a service of its own.
+PostgreSQL, MongoDB, Redis, RustFS). Hermes Agent runs inside the `personal`
+sandbox (see below), not as a service of its own.
 
 ## Repository layout
 
 ```
 .
-├── Dockerfile               # the sandbox image — builds all three sandboxes
-├── compose.yaml             # server stack (Traefik + infra + sandboxes)
+├── Dockerfile               # the sandbox base image: Node.js 24 LTS + basic tooling
+├── compose.yaml             # server stack (Traefik + infra, no sandboxes)
 ├── compose.local.yaml       # local stack (host ports + infra + sandboxes)
-├── .env.example             # secrets/domain template — copy to .env
-├── setup.sh                 # install selected tools into a sandbox container
 └── docs/
     ├── README.md            # service tables, replication guide, DNS, TLS
     ├── INTEGRATION.md       # how a separate app joins the stack network
@@ -33,18 +33,16 @@ runs inside the `personal` sandbox (see below), not as a service of its own.
 
 ```bash
 cp .env.example .env      # fill in DOMAIN only if you need it; local stack ignores TLS
-docker compose -f compose.local.yaml build
-docker compose -f compose.local.yaml up -d
-./setup.sh flyakeed node gh kiro            # flyakeed tools
-./setup.sh vectora node claude cursor       # vectora tools
-./setup.sh personal node gh opencode hermes # personal tools + hermes gateway
+docker compose -f compose.local.yaml build    # shared sandbox-base image (layer-cached, one real build)
+docker compose -f compose.local.yaml up -d    # infra + the three sandboxes
+docker compose -f compose.local.yaml exec flyakeed-sandbox bash   # enter and install what you need
 ```
 
 ### Server
 
 ```bash
 cp .env.example .env && nano .env    # DOMAIN, ACME_EMAIL, credentials
-docker compose build
+docker compose build                 # shared sandbox-base image (layer-cached with local)
 docker compose up -d
 ```
 
@@ -62,24 +60,41 @@ containers with no Docker-in-Docker, so they cannot touch host devices or the
 Docker socket. The only host data they can see is the directory mounted as
 their workspace.
 
-| Sandbox  | Tools (pick via `./setup.sh`)              | Live process         | Local port    | Server route                          |
-|----------|--------------------------------------------|----------------------|---------------|---------------------------------------|
-| flyakeed | node 26 (nvm), gh, kiro-cli                | idle                 | —             | —                                     |
-| vectora  | node 26 (nvm), claude-code, cursor-agent   | idle                 | —             | —                                     |
-| personal | node 26 (nvm), gh, opencode, hermes        | hermes gateway :9119 | `9229 → 9119` | `https://hermes.personal.${DOMAIN}`   |
-| personal | (opencode dashboard, port exposed)         | opencode web :4096   | `4096 → 4096` | `https://opencode.personal.${DOMAIN}` |
+The server stack (compose.yaml) also runs a single shared `sandbox`
+(workspace `${HOST_WORKSPACES_PATH}` mounted at `/workspaces/sandbox`). It
+has no Traefik route — enter it with `docker compose exec sandbox bash`.
 
-All sandboxes are idle toolboxes; enter one with `docker compose exec <slug>-sandbox bash`.
-Tools are installed on demand with `./setup.sh <slug> <tool>...` (one shared
-script — run `./setup.sh` to print the tool list). The personal sandbox's
-Hermes gateway runs **inside** the sandbox: `./setup.sh personal hermes`
-installs it and starts `hermes gateway run` + the dashboard; after the
-container is recreated, re-run that command to start them again.
+| Sandbox  | Typical tools (install as needed)          | Live process         | Local port    |
+|----------|--------------------------------------------|----------------------|---------------|
+| flyakeed | gh, kiro-cli                               | idle                 | —             |
+| vectora  | claude-code, cursor-agent                  | idle                 | —             |
+| personal | gh, opencode, hermes                       | hermes gateway :9119 | `9229 → 9119` |
+| personal | (opencode dashboard, port exposed)         | opencode web :4096   | `4096 → 4096` |
+
+All sandboxes are idle toolboxes; enter one with
+`docker compose -f compose.local.yaml exec <slug>-sandbox bash`.
+The base image already ships **Node.js 24 LTS**, git, curl, openssh-client and
+nano — install anything else inside the sandbox yourself. Handy one-liners:
+
+| Tool         | Install inside the sandbox                                                            |
+|--------------|----------------------------------------------------------------------------------------|
+| claude-code  | `npm install -g @anthropic-ai/claude-code`                                             |
+| opencode     | `curl -fsSL https://opencode.ai/install \| bash`                                        |
+| cursor-agent | `curl https://cursor.com/install -fsS \| bash`                                          |
+| kiro-cli     | `curl -fsSL https://cli.kiro.dev/install \| bash`                                       |
+| gh           | download the latest `gh_*_linux_*.tar.gz` from cli/cli releases, or use its apt repo    |
+| hermes       | `curl -fsSL https://hermes-agent.nousresearch.com/install.sh \| bash -- --non-interactive` |
+
+The personal sandbox's Hermes gateway runs **inside** the sandbox; after
+installing, start it with
+`nohup hermes gateway run >>~/.hermes/gateway.log 2>&1 &`
+(plus the dashboard if wanted). After a container recreation the tool and its
+config are still there — just start the process again.
 
 The personal sandbox also exposes **opencode's dashboard** on port 4096. Start
 it inside the sandbox with:
 ```bash
-docker compose exec personal-sandbox opencode web --hostname 0.0.0.0 --port 4096
+docker compose -f compose.local.yaml exec personal-sandbox opencode web --hostname 0.0.0.0 --port 4096
 ```
 then open `http://localhost:4096` (local stack). It binds `0.0.0.0`, so anyone
 who can reach the host port can use it — set `OPENCODE_SERVER_PASSWORD` to
@@ -99,31 +114,32 @@ sensitive** — the AI can read and write everything under the path.
 
 ### Persistent state
 
-Each sandbox mounts a named volume at `/root` (its home). Tool state
-written there — `gh` auth, opencode sessions, kiro/claude/cursor state, hermes
-config/sessions (`~/.hermes`), nvm + node (`~/.nvm`) — **survives container
-destruction and recreation**. Tools are installed at runtime by
-`./setup.sh <slug> <tool>...` (idempotent — safe to re-run).
+Each sandbox mounts a named volume at `/root` (its home). Credentials and tool
+state written there — `gh` auth, opencode sessions, kiro/claude/cursor state,
+hermes config/sessions (`~/.hermes`), and **npm global installs** (the image
+sets npm's prefix to `/root/.local`, so `npm i -g` lands in the volume) —
+**survives container destruction and recreation**. Nothing needs
+re-authentication or re-configuration after a recreate.
 
-To wipe a sandbox back to a clean slate (container + its state volume), then
-reinstall its tools:
+To wipe a sandbox back to a clean slate (container + its state volume):
 
 ```bash
-# server stack (add `-f compose.local.yaml` for the local stack)
-docker compose rm -sf personal-sandbox
+# sandboxes live in the local stack
+docker compose -f compose.local.yaml rm -sf personal-sandbox
 docker volume rm infrastructure_personal-sandbox
-docker compose up -d personal-sandbox
-./setup.sh personal node gh opencode hermes
+docker compose -f compose.local.yaml up -d personal-sandbox
 ```
+
+Everything installed under `/root` (and anything installed at image build
+time) is gone after the volume removal — reinstall the tools you need.
 
 The workspace bind mount and all infrastructure data are left untouched.
 
 ### Getting into a sandbox
 
 ```bash
-docker compose exec flyakeed-sandbox bash
-# or for the local stack:
-docker compose -f compose.local.yaml exec vectora-sandbox bash
+# sandboxes live in the local stack:
+docker compose -f compose.local.yaml exec flyakeed-sandbox bash
 ```
 
 ## Security model
