@@ -1,4 +1,4 @@
-name: infrastructure
+name: workspace
 
 services:
   portainer:
@@ -137,7 +137,7 @@ services:
 
 networks:
   default:
-    name: infrastructure
+    name: workspace
     driver: bridge
 
 volumes:

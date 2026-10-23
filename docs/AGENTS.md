@@ -103,15 +103,16 @@ host's public IP).
 
 All three local sandboxes share the root `Dockerfile` (tag
 `sandbox-base:latest`, based on the **latest Node.js LTS** — currently
-`node:24`); there is no devcontainer and no Docker-in-Docker. The slug
+`node:24-alpine`); there is no devcontainer and no Docker-in-Docker. The slug
 services (`flyakeed-sandbox`, `vectora-sandbox`, `personal-sandbox`) are
 defined in **compose.local.yaml**, and the server stack defines one shared
 `sandbox` service in compose.yaml. The image bakes in
 Node.js LTS plus base tooling at build time (git, curl, openssh-client, nano,
-jq, ripgrep, less, unzip, xz-utils, gnupg, procps, libatomic1) — nothing
-heavier. Beyond that you install what you need **inside the sandbox**; handy
-one-liners for claude-code / opencode / cursor-agent / kiro-cli / gh / hermes
-live in the main README's Sandboxes section.
+jq, ripgrep, less, unzip, xz, gnupg, procps). The Alpine base already includes
+the CA certificate bundle and Node's runtime libraries. Beyond that you install
+what you need **inside the sandbox**; handy one-liners for claude-code /
+opencode / cursor-agent / kiro-cli / gh / hermes live in the main README's
+Sandboxes section.
 
 - **Identity / permissions.** Sandboxes run as **root (uid 0)** with the host
   user's group (`user: "0:1000"` in the compose files) and `umask 002` (wired
