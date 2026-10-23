@@ -105,9 +105,8 @@ defined in **compose.local.yaml**, and the server stack defines one shared
 Node.js LTS plus base tooling at build time (git, curl, openssh-client, nano,
 jq, ripgrep, less, unzip, xz, gnupg, procps). The Alpine base already includes
 the CA certificate bundle and Node's runtime libraries. Beyond that you install
-what you need **inside the sandbox**; handy one-liners for claude-code /
-opencode / cursor-agent / kiro-cli / gh / hermes live in the main README's
-Sandboxes section.
+what you need **inside the sandbox**; handy one-liners for opencode /
+kiro-cli / gh live in the main README's Sandboxes section.
 
 - **Identity / permissions.** Sandboxes run as **root (uid 0)** with the host
   user's group (`user: "0:1000"` in the compose files) and `umask 002` (wired
@@ -125,8 +124,7 @@ Sandboxes section.
   could contain secrets (e.g. `$HOME`, this repo's `.env`).
 - **Persistent state:** each local sandbox mounts the named volume
   `<slug>_data` at `/root` (HOME). Credentials and tool state written
-  there — gh auth, opencode sessions (`~/.opencode`), kiro/claude/cursor
-  state, and npm global installs (the image
+  there — gh auth, opencode sessions (`~/.opencode`), kiro-cli state, and npm global installs (the image
   sets npm's prefix to `/root/.local`, so `npm i -g` lands in the volume) —
   **survives container destruction and recreation**. Nothing needs
   re-auth or reinstall after a recreate. Note: anything installed via

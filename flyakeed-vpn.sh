@@ -6,6 +6,7 @@
 # login (password + MFA). That can't be done with a headless curl, so the SAML
 # step has to go through a real browser. This script:
 #   1. installs openfortivpn if it's missing
+#      (project: https://github.com/adrienverge/openfortivpn)
 #   2. starts `openfortivpn <gw> --saml-login` (it listens on 127.0.0.1:8020
 #      for the SAML callback that carries the session cookie)
 #   3. asks the gateway for the Microsoft login URL
@@ -55,17 +56,20 @@ open_url() {
 
 # ---------------------------------------------------------------------------
 # 1. Install openfortivpn if not present
+#    Source / build-from-source docs: https://github.com/adrienverge/openfortivpn
 # ---------------------------------------------------------------------------
 if ! command -v openfortivpn >/dev/null 2>&1; then
   echo ">> openfortivpn not found — installing..."
-  if   command -v apt-get >/dev/null 2>&1; then sudo apt-get update -y && sudo apt-get install -y openfortivpn
+  if   command -v apk     >/dev/null 2>&1; then sudo apk add --no-cache openfortivpn
+  elif command -v apt-get >/dev/null 2>&1; then sudo apt-get update -y && sudo apt-get install -y openfortivpn
   elif command -v dnf     >/dev/null 2>&1; then sudo dnf install -y openfortivpn
   elif command -v yum     >/dev/null 2>&1; then sudo yum install -y openfortivpn
   elif command -v pacman  >/dev/null 2>&1; then sudo pacman -Sy --noconfirm openfortivpn
   elif command -v zypper  >/dev/null 2>&1; then sudo zypper install -y openfortivpn
   elif command -v brew    >/dev/null 2>&1; then brew install openfortivpn
   else
-    echo "!! No supported package manager found. Install openfortivpn manually." >&2
+    echo "!! No supported package manager found." >&2
+    echo "!! Install openfortivpn manually — see https://github.com/adrienverge/openfortivpn" >&2
     exit 1
   fi
 fi
