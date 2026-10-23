@@ -1,4 +1,4 @@
-# devtik workspace
+# workspace
 
 A self-hosted development workspace built on two mutually exclusive Docker
 Compose stacks and a set of disposable **sandbox** containers for AI agents.
@@ -11,8 +11,10 @@ Compose stacks and a set of disposable **sandbox** containers for AI agents.
   only.
 
 Both stacks include the same infrastructure services (Portainer, DBgate,
-PostgreSQL, MongoDB, Redis, RustFS). Hermes Agent runs inside the `personal`
-sandbox (see below), not as a service of its own.
+PostgreSQL, MongoDB, Redis, RustFS) and the same sandbox image. The server
+stack runs one shared `sandbox`; the local stack runs the three named
+sandboxes (see below). Tools like Hermes Agent are installed inside a sandbox
+as needed — they are not services of their own.
 
 ## Repository layout
 
@@ -33,22 +35,22 @@ sandbox (see below), not as a service of its own.
 
 ```bash
 cp .env.example .env      # fill in DOMAIN only if you need it; local stack ignores TLS
-docker compose -f compose.local.yaml build    # shared sandbox-base image (layer-cached, one real build)
+docker compose -f compose.local.yaml build    # shared sandbox image (layer-cached, one real build)
 docker compose -f compose.local.yaml up -d    # infra + the three sandboxes
-docker compose -f compose.local.yaml exec flyakeed-sandbox bash   # enter and install what you need
+docker compose -f compose.local.yaml exec flyakeed bash   # enter and install what you need
 ```
 
 ### Server
 
 ```bash
 cp .env.example .env && nano .env    # DOMAIN, ACME_EMAIL, credentials
-docker compose build                 # shared sandbox-base image (layer-cached with local)
+docker compose build                 # shared sandbox image (layer-cached with local)
 docker compose up -d
 ```
 
 Install Docker and open the ports you need in your firewall (80/443, plus the
-DB TCP ports for remote clients). The Traefik dashboard hash and the plain
-Hermes credentials are set by hand — see [docs/README.md](docs/README.md).
+DB TCP ports for remote clients). The Traefik dashboard hash is set by hand —
+see [docs/README.md](docs/README.md).
 Create the DNS A records (all under `${DOMAIN}`) before deploying so Let's
 Encrypt can issue certificates.
 
@@ -64,17 +66,17 @@ The server stack (compose.yaml) also runs a single shared `sandbox`
 (workspace `${HOST_WORKSPACES_PATH}` mounted at `/workspaces/sandbox`). It
 has no Traefik route — enter it with `docker compose exec sandbox bash`.
 
-| Sandbox  | Typical tools (install as needed)          | Live process         | Local port    |
-|----------|--------------------------------------------|----------------------|---------------|
-| flyakeed | gh, kiro-cli                               | idle                 | —             |
-| vectora  | claude-code, cursor-agent                  | idle                 | —             |
-| personal | gh, opencode, hermes                       | hermes gateway :9119 | `9229 → 9119` |
-| personal | (opencode dashboard, port exposed)         | opencode web :4096   | `4096 → 4096` |
+| Sandbox  | Typical tools (install as needed)   |
+|----------|-------------------------------------|
+| flyakeed | gh, kiro-cli                        |
+| vectora  | claude-code, cursor-agent           |
+| personal | gh, opencode, hermes                |
 
 All sandboxes are idle toolboxes; enter one with
-`docker compose -f compose.local.yaml exec <slug>-sandbox bash`.
-The base image already ships **Node.js 24 LTS**, git, curl, openssh-client and
-nano — install anything else inside the sandbox yourself. Handy one-liners:
+`docker compose -f compose.local.yaml exec <slug> bash`.
+The base image already ships **Node.js 24 LTS**, git, curl, openssh-client,
+nano, jq, ripgrep, less, unzip, xz, gnupg and procps — install anything else
+inside the sandbox yourself. Handy one-liners:
 
 | Tool         | Install inside the sandbox                                                            |
 |--------------|----------------------------------------------------------------------------------------|
@@ -85,20 +87,9 @@ nano — install anything else inside the sandbox yourself. Handy one-liners:
 | gh           | download the latest `gh_*_linux_*.tar.gz` from cli/cli releases, or use its apt repo    |
 | hermes       | `curl -fsSL https://hermes-agent.nousresearch.com/install.sh \| bash -- --non-interactive` |
 
-The personal sandbox's Hermes gateway runs **inside** the sandbox; after
-installing, start it with
-`nohup hermes gateway run >>~/.hermes/gateway.log 2>&1 &`
-(plus the dashboard if wanted). After a container recreation the tool and its
-config are still there — just start the process again.
-
-The personal sandbox also exposes **opencode's dashboard** on port 4096. Start
-it inside the sandbox with:
-```bash
-docker compose -f compose.local.yaml exec personal-sandbox opencode web --hostname 0.0.0.0 --port 4096
-```
-then open `http://localhost:4096` (local stack). It binds `0.0.0.0`, so anyone
-who can reach the host port can use it — set `OPENCODE_SERVER_PASSWORD` to
-require basic auth (`OPENCODE_SERVER_USERNAME` defaults to `opencode`).
+Tools are not autostarted — start whatever you installed manually inside the
+sandbox. After a container recreation the tools and their config are still
+there (state lives in the volume); just start the process again.
 
 Inside a sandbox you are **root** (uid 0), running with your host user's group
 (gid 1000) and `umask 002`. So files created in the bind-mounted workspace —
@@ -107,16 +98,18 @@ commit from the sandbox or the host as your normal user, interchangeably.
 
 ### Workspaces
 
-Each sandbox bind-mounts a host directory set by an env var
-(`FLYAKEED_WORKSPACES_PATH`, `VECTORA_WORKSPACES_PATH`,
-`PERSONAL_WORKSPACES_PATH`). Point these at directories that contain **nothing
-sensitive** — the AI can read and write everything under the path.
+Each sandbox bind-mounts a host directory set by the single
+`HOST_WORKSPACES_PATH` env var: the server `sandbox` mounts
+`${HOST_WORKSPACES_PATH}` at `/workspaces/sandbox`, and each local sandbox
+mounts `${HOST_WORKSPACES_PATH}/<slug>` at `/workspace`. Point these at
+directories that contain **nothing sensitive** — the AI can read and write
+everything under the path.
 
 ### Persistent state
 
 Each sandbox mounts a named volume at `/root` (its home). Credentials and tool
 state written there — `gh` auth, opencode sessions, kiro/claude/cursor state,
-hermes config/sessions (`~/.hermes`), and **npm global installs** (the image
+and **npm global installs** (the image
 sets npm's prefix to `/root/.local`, so `npm i -g` lands in the volume) —
 **survives container destruction and recreation**. Nothing needs
 re-authentication or re-configuration after a recreate.
@@ -125,9 +118,9 @@ To wipe a sandbox back to a clean slate (container + its state volume):
 
 ```bash
 # sandboxes live in the local stack
-docker compose -f compose.local.yaml rm -sf personal-sandbox
-docker volume rm infrastructure_personal-sandbox
-docker compose -f compose.local.yaml up -d personal-sandbox
+docker compose -f compose.local.yaml rm -sf personal
+docker volume rm workspace_personal_data
+docker compose -f compose.local.yaml up -d personal
 ```
 
 Everything installed under `/root` (and anything installed at image build
@@ -139,7 +132,7 @@ The workspace bind mount and all infrastructure data are left untouched.
 
 ```bash
 # sandboxes live in the local stack:
-docker compose -f compose.local.yaml exec flyakeed-sandbox bash
+docker compose -f compose.local.yaml exec flyakeed bash
 ```
 
 ## Security model
@@ -150,5 +143,5 @@ docker compose -f compose.local.yaml exec flyakeed-sandbox bash
   group (gid 1000) and `umask 002`. That is container-local root: it does not
   grant host root, and the workspace directory and named state volume remain
   the only host data it touches.
-- `*_WORKSPACES_PATH` is the only host data exposed; keep it free of secrets.
+- `HOST_WORKSPACES_PATH` is the only host data exposed; keep it free of secrets.
 - Infrastructure secrets live in `.env` and are never mounted into sandboxes.

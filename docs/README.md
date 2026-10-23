@@ -26,7 +26,7 @@ Set `DOMAIN` in `.env`; the hostnames below are all `<name>.${DOMAIN}`.
 | Portainer | portainer/portainer-ce | `https://portainer.${DOMAIN}` | `portainer_data` |
 | DBgate | dbgate/dbgate | `https://dbgate.${DOMAIN}` | `dbgate_config` |
 | Traefik dashboard | (built-in) | `https://traefik.${DOMAIN}` (basic auth) | — |
-| sandbox | sandbox-base:latest (shared sandbox image) | — (no public route; `docker compose exec sandbox bash`) | `sandbox` |
+| sandbox | sandbox:latest (shared sandbox image) | — (no public route; `docker compose exec sandbox bash`) | `sandbox_data` |
 
 ### Databases & storage
 
@@ -43,9 +43,10 @@ databases internally by container name (`postgres`, `mongodb`, `redis`) without
 going through Traefik. The database services all have healthchecks. Credentials
 and the domain are read from `.env`.
 
-> **Note:** all data lives in Compose-managed **named volumes** (project
-> `infrastructure`, so e.g. `infrastructure_postgres_data`). Docker creates and
-> owns them automatically — there is no host directory prep. `traefik` is pinned
+> **Note:** all data lives in Compose-managed **named volumes** (server project
+> `infrastructure`, so e.g. `infrastructure_postgres_data`; local project
+> `workspace`, so `workspace_postgres_data`). Docker creates and owns them
+> automatically — there is no host directory prep. `traefik` is pinned
 > to `:v3`; the data images are version-pinned; `rustfs`, `portainer`, and
 > `dbgate` are unpinned (`:latest`).
 
@@ -67,10 +68,10 @@ and ports 80/443 are reachable.
 
 ## Live vs Local (two compose files)
 
-There are **two mutually exclusive compose files**, one per environment. They
-share the same named volumes and the `infrastructure` network name, so
-**run only one at a time on a given host** (`docker compose down` before
-switching).
+There are **two mutually exclusive compose files**, one per environment. Each
+pins its own project name — `infrastructure` (server) / `workspace` (local) —
+so each stack owns its own network and volumes. **Run only one at a time on a
+given host** (`docker compose down` before switching).
 
 | File | Environment | Entrypoint | Reachability |
 |------|-------------|------------|--------------|
@@ -108,8 +109,6 @@ docker compose -f compose.local.yaml up -d
 | PostgreSQL | `localhost:5432` (non-TLS) |
 | MongoDB | `localhost:27017` (non-TLS) |
 | Redis | `localhost:6379` (non-TLS) |
-| personal sandbox Hermes | `http://localhost:9229` (Hermes basic auth via env; runs inside personal-sandbox) |
-| personal sandbox opencode | `http://localhost:4096` (opencode dashboard; runs inside personal-sandbox) |
 
 ---
 
@@ -128,8 +127,8 @@ nano .env
 ```
 
 `.env` supplies the domain/ACME settings, the Traefik dashboard credentials, the
-PostgreSQL, MongoDB, Redis, and RustFS credentials, and the plain Hermes
-`HERMES_USERNAME` / `HERMES_PASSWORD`.
+PostgreSQL, MongoDB, Redis, and RustFS credentials, and the sandbox workspace
+root (`HOST_WORKSPACES_PATH`).
 
 > **Gotcha:** any literal `$` in a value must be written as `$$` (compose turns
 > `$$` back into `$`). This matters most for the bcrypt
@@ -137,8 +136,7 @@ PostgreSQL, MongoDB, Redis, and RustFS credentials, and the plain Hermes
 > ```bash
 > docker run --rm httpd:alpine htpasswd -nbB admin 'yourpassword'
 > ```
-> then double every `$` before pasting into `.env`. The Hermes dashboard
-> password (`HERMES_PASSWORD`) is plain text, so no escaping is needed there.
+> then double every `$` before pasting into `.env`.
 > **Never `source .env`** — compose reads it directly, and sourcing would let
 > bash expand those `$`.
 
@@ -165,7 +163,7 @@ docker compose up -d traefik
 ### 4. Deploy the full stack
 
 ```bash
-docker compose build      # shared sandbox-base image (same Dockerfile as the local stack)
+docker compose build      # shared sandbox image (same Dockerfile as the local stack)
 docker compose up -d
 ```
 
@@ -184,45 +182,6 @@ need it (one-liners in the main README's Sandboxes section).
 
 Or via Portainer: **Stacks → Add stack**, name it `infrastructure`, paste the
 contents of `compose.yaml`, and **Deploy the stack**.
-
-### 5. Configure Hermes Agent (one-time)
-
-Hermes runs **inside the personal sandbox**. Install it inside the sandbox
-(one-liner in the main README's Sandboxes section), then choose its model
-provider and default model once — they are written into the sandbox's state
-volume (`~/.hermes`), so they persist across container recreation:
-
-```bash
-docker compose -f compose.local.yaml exec -it personal-sandbox hermes model
-#  → pick a provider and a model
-```
-
-This writes `config.yaml` inside the `personal-sandbox` volume.
-
-**Dashboard auth (required).** Hermes refuses to bind its dashboard to a
-non-loopback address (needed so Traefik can reach it) unless an auth provider is
-configured — Traefik's basic-auth middleware does not count, because Hermes
-can't see it. The `personal-sandbox` service forwards the plain-text
-`HERMES_USERNAME` / `HERMES_PASSWORD` from `.env` as
-`HERMES_DASHBOARD_BASIC_AUTH_USERNAME` / `HERMES_DASHBOARD_BASIC_AUTH_PASSWORD`:
-
-```
-HERMES_USERNAME=admin
-HERMES_PASSWORD=changeme
-```
-
-`HERMES_PASSWORD` is plain text — Hermes hashes it in memory (the bundled
-`dashboard_auth/basic` provider). Restart the sandbox after changing them:
-
-```bash
-docker compose -f compose.local.yaml restart personal-sandbox
-# then start the gateway again inside the sandbox (no reinstall needed):
-docker compose -f compose.local.yaml exec -d personal-sandbox \
-  bash -c 'nohup hermes gateway run >>~/.hermes/gateway.log 2>&1'
-```
-
-Then reach the dashboard at `http://localhost:9229` (Hermes basic auth via env)
-on the local stack.
 
 ### Connecting to the data services
 
@@ -286,12 +245,14 @@ volumes. Either back them up with a temporary helper container:
 ```bash
 # On old device: stop the stack, then export each volume to a tarball
 docker compose down
-for v in traefik_certs portainer_data dbgate_config \
-         postgres_data mongodb_data redis_data rustfs_data \
-         flyakeed-sandbox vectora-sandbox personal-sandbox; do
+for v in traefik_certs portainer_data dbgate_config postgres_data \
+         mongodb_data redis_data rustfs_data sandbox_data; do
   docker run --rm -v "infrastructure_${v}:/vol" -v "$PWD:/backup" alpine \
     tar czf "/backup/${v}.tgz" -C /vol .
 done
+# Local stack volumes live under the workspace_ prefix instead
+# (workspace_postgres_data, workspace_flyakeed_data, ...) — same command with
+# the matching prefix.
 # copy the .tgz files to the new host and extract the same way (stack stopped)
 ```
 

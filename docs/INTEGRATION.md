@@ -217,4 +217,3 @@ docker compose up -d
 - [ ] Router/service label ids are unique (no clash with existing routers).
 - [ ] A DNS A record exists for the app's hostname under the same `DOMAIN`.
 - [ ] App retries its DB connection on startup (no cross-project `depends_on`).
-```
