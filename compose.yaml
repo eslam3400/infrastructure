@@ -3,7 +3,7 @@ name: infrastructure
 services:
   traefik:
     container_name: traefik
-    image: traefik:v3
+    image: traefik:v3.7.17
     restart: unless-stopped
     command:
       - --api.dashboard=true
@@ -43,7 +43,7 @@ services:
 
   portainer:
     container_name: portainer
-    image: portainer/portainer-ce
+    image: portainer/portainer-ce:2.45.3
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
@@ -58,7 +58,7 @@ services:
 
   dbgate:
     container_name: dbgate
-    image: dbgate/dbgate
+    image: dbgate/dbgate:7.3.4
     restart: unless-stopped
     volumes:
       - dbgate_config:/root/.dbgate
@@ -95,7 +95,7 @@ services:
       traefik.tcp.services.postgres.loadbalancer.server.port: "5432"
 
   mongodb:
-    image: mongo:8.0
+    image: mongo:9.0.4
     container_name: mongodb
     restart: unless-stopped
     environment:
@@ -119,7 +119,7 @@ services:
       traefik.tcp.services.mongodb.loadbalancer.server.port: "27017"
 
   redis:
-    image: redis:8.8.1
+    image: redis:8.8.4
     container_name: redis
     restart: unless-stopped
     command: >
@@ -140,7 +140,7 @@ services:
       traefik.tcp.services.redis.loadbalancer.server.port: "6379"
 
   rustfs:
-    image: rustfs/rustfs:latest
+    image: rustfs/rustfs:1.0.4
     container_name: rustfs
     restart: unless-stopped
     user: "0:0"
@@ -176,13 +176,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: sandbox:latest
+    image: sandbox:26.13.0
     container_name: sandbox
     restart: unless-stopped
     command: sleep infinity
-    working_dir: /workspaces/sandbox
+    working_dir: /workspace
     volumes:
-      - ${HOST_WORKSPACES_PATH}:/workspaces/sandbox
+      - ${HOST_WORKSPACES_PATH}:/workspace
       - sandbox_data:/root
 
 networks:
