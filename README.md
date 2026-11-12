@@ -66,11 +66,12 @@ docker compose -f compose.local.yaml up -d sandbox
 |------------|---------------------------------|-------------------------------------|------------------------|------------------|
 | Traefik    | `traefik:v3.7.17`               | `traefik.${DOMAIN}` (basic auth)    | —                      | `traefik_certs`  |
 | Portainer  | `portainer/portainer-ce:2.45.3` | `portainer.${DOMAIN}`               | `localhost:9443`       | `portainer_data` |
-| DBgate     | `dbgate/dbgate:7.3.4`           | `dbgate.${DOMAIN}`                  | `localhost:3000`       | `dbgate_config`  |
+| DBgate     | `dbgate/dbgate:7.3.4`           | `dbgate.${DOMAIN}`                  | `localhost:5433`       | `dbgate_config`  |
 | PostgreSQL | `postgres:18.6`                 | `postgres.${DOMAIN}:5432` (TLS)     | `localhost:5432`       | `postgres_data`  |
 | MongoDB    | `mongo:9.0.4`                   | `mongodb.${DOMAIN}:27017` (TLS)     | `localhost:27017`      | `mongodb_data`   |
 | Redis      | `redis:8.8.4`                   | `redis.${DOMAIN}:6379` (TLS)        | `localhost:6379`       | `redis_data`     |
 | RustFS     | `rustfs/rustfs:1.0.4`           | `s3.${DOMAIN}`, `storage.${DOMAIN}` | `localhost:9000/9001`  | `rustfs_data`    |
+| OpenCode   | `sandbox` (npm `opencode-ai`)   | `opencode.${DOMAIN}` (basic auth)   | `localhost:4096`       | `sandbox_data`   |
 | sandbox    | `sandbox:26.13.0`               | —                                   | —                      | `sandbox_data`   |
 
 On the server, Traefik is the only service with host `ports:` — it publishes
@@ -89,7 +90,7 @@ DBgate reaches the databases by container name.
 
    ```
    traefik.${DOMAIN}    portainer.${DOMAIN}   dbgate.${DOMAIN}
-   storage.${DOMAIN}    s3.${DOMAIN}
+   storage.${DOMAIN}    s3.${DOMAIN}    opencode.${DOMAIN}
    postgres.${DOMAIN}   mongodb.${DOMAIN}     redis.${DOMAIN}
    ```
 
@@ -139,6 +140,7 @@ backends it finds there.
 | MongoDB    | `mongodb:27017`       | no `tls=true`                      |
 | Redis      | `redis:6379`          | password required                  |
 | RustFS     | `rustfs:9000`         | S3 API, path-style addressing      |
+| OpenCode   | `sandbox` (npm `opencode-ai`)   | `opencode.${DOMAIN}` (basic auth)   | `localhost:4096`       | `sandbox_data`   |
 
 ```bash
 postgres://USER:PASSWORD@postgres:5432/DBNAME?sslmode=disable
@@ -165,7 +167,7 @@ services:
     image: your/api:1.0.0
     restart: unless-stopped
     environment:
-      DATABASE_URL: "postgres://${PG_USER}:${PG_PASSWORD}@postgres:5432/${APP_DB}?sslmode=disable"
+      DATABASE_URL: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${APP_DB}?sslmode=disable"
       REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379/0"
     networks: [infrastructure]
     labels:

@@ -15,3 +15,7 @@ RUN apk add --no-cache \
 
 RUN npm config set prefix /root/.local
 ENV PATH=/root/.local/bin:$PATH
+
+RUN npm install -g opencode-ai
+
+EXPOSE 4096
