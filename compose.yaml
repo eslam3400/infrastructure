@@ -15,10 +15,6 @@ services:
       - --entrypoints.web.http.redirections.entrypoint.to=websecure
       - --entrypoints.web.http.redirections.entrypoint.scheme=https
       - --entrypoints.websecure.address=:443
-      # TCP entrypoints for data services
-      - --entrypoints.postgres.address=:5432
-      - --entrypoints.mongodb.address=:27017
-      - --entrypoints.redis.address=:6379
       # Let's Encrypt
       - --certificatesresolvers.le.acme.email=${ACME_EMAIL}
       - --certificatesresolvers.le.acme.storage=/certs/acme.json
@@ -26,9 +22,6 @@ services:
     ports:
       - "80:80"
       - "443:443"
-      - "5432:5432"
-      - "27017:27017"
-      - "6379:6379"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik_certs:/certs
@@ -86,13 +79,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-    labels:
-      traefik.enable: "true"
-      traefik.tcp.routers.postgres.rule: "HostSNI(`*`)"
-      traefik.tcp.routers.postgres.entrypoints: postgres
-      traefik.tcp.routers.postgres.tls: "true"
-      traefik.tcp.routers.postgres.tls.certresolver: le
-      traefik.tcp.services.postgres.loadbalancer.server.port: "5432"
 
   mongodb:
     image: mongo:9.0.4
@@ -107,13 +93,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
-    labels:
-      traefik.enable: "true"
-      traefik.tcp.routers.mongodb.rule: "HostSNI(`*`)"
-      traefik.tcp.routers.mongodb.entrypoints: mongodb
-      traefik.tcp.routers.mongodb.tls: "true"
-      traefik.tcp.routers.mongodb.tls.certresolver: le
-      traefik.tcp.services.mongodb.loadbalancer.server.port: "27017"
 
   redis:
     image: redis:8.8.4
@@ -128,13 +107,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    labels:
-      traefik.enable: "true"
-      traefik.tcp.routers.redis.rule: "HostSNI(`*`)"
-      traefik.tcp.routers.redis.entrypoints: redis
-      traefik.tcp.routers.redis.tls: "true"
-      traefik.tcp.routers.redis.tls.certresolver: le
-      traefik.tcp.services.redis.loadbalancer.server.port: "6379"
 
   rustfs:
     image: rustfs/rustfs:1.0.4
