@@ -20,23 +20,45 @@ image is pinned to an exact version; update the pins deliberately.
 ├── Dockerfile           # sandbox image: Node.js 26 LTS (Alpine) + basic CLI tools
 ├── compose.yaml         # server stack (Traefik + infra + sandbox)
 ├── compose.local.yaml   # local stack (host ports + infra + sandbox)
-└── .env.example         # copy to .env and fill in
+├── Makefile             # make targets that run Compose with injected secrets
+└── .env.example         # bootstrap values + reference list of Infisical keys
 ```
 
 ## Quickstart
 
+Secrets live in Infisical. `.env` holds only the machine identity bootstrap
+values (`INFISICAL_*`, mode `600`); `make` exchanges them for a short-lived
+token and injects everything else into the Compose process.
+
 ```bash
-cp .env.example .env    # set HOST_WORKSPACES_PATH to an absolute path
+cp .env.example .env && chmod 600 .env   # fill in the four INFISICAL_* values
+                                        # and set HOST_WORKSPACES_PATH in Infisical
 
 # Local
-docker compose -f compose.local.yaml build
-docker compose -f compose.local.yaml up -d
-docker compose -f compose.local.yaml exec sandbox bash
+make build FILE=compose.local.yaml
+make up FILE=compose.local.yaml
+make shell FILE=compose.local.yaml
 
-# Server — create the DNS records below first, and set DOMAIN/ACME_EMAIL/credentials
-docker compose build
-docker compose up -d
+# Server — create the DNS records below first
+make build
+make up
 ```
+
+Run `make` to list targets. Every target executes `docker compose -f $(FILE)`
+behind `infisical run --projectId "$INFISICAL_PROJECT_ID" --env
+"$INFISICAL_ENVIRONMENT"`, so subcommands behave normally; `make dc ARGS="ps -a"`
+passes anything through. `make verify` checks injection without Docker by
+printing whether the keys in `SECRETS` are set. Containers receive variables
+through the explicit
+`environment:` blocks in both compose files — Compose passes nothing to a
+container unless it is listed there. Requirements: the `infisical` CLI and
+`make` installed, and the machine identity granted read access to the project.
+A machine identity has no `.infisical.json`, which is why `--projectId` is
+passed explicitly.
+
+Keep `.env` bootstrap-only. If you add the project's secrets to it as well,
+they are exported by the Makefile and shadow the injected values, and you are
+back to plaintext secrets in a file.
 
 ## Sandbox
 
@@ -81,11 +103,13 @@ DBgate reaches the databases by container name.
 
 ## Server deployment
 
-1. **Environment** — fill `.env`: `DOMAIN`, `ACME_EMAIL`, database credentials,
-   and `TRAEFIK_DASHBOARD_USERS`. Generate the dashboard hash with
-   `docker run --rm httpd:alpine htpasswd -nbB admin 'yourpassword'`, then
-   double every `$` (`$$`) so Compose does not interpolate it. Never
-   `source .env`.
+1. **Environment** — create `DOMAIN`, `ACME_EMAIL`, the database credentials,
+   and `TRAEFIK_DASHBOARD_USERS` in Infisical. Generate the dashboard hash with
+   `docker run --rm httpd:alpine htpasswd -nbB admin 'yourpassword'` and store
+   it **as-is, with single `$`**: `make` injects values directly, so there is
+   no `.env` interpolation pass to un-double `$$`. Verify with
+   `make config | grep basicauth`. The host's `.env` holds only the
+   `INFISICAL_*` bootstrap values — never the stack's secrets.
 2. **DNS** — create A records for all hostnames, pointing at the server IP:
 
    ```
@@ -148,9 +172,11 @@ mongodb://USER:PASSWORD@mongodb:27017/DBNAME?authSource=admin
 redis://:PASSWORD@redis:6379/0
 ```
 
-Credentials come from the stack's `.env`; put the same values in the app's own
-`.env` via `${VAR}`. Prefer a dedicated, least-privilege database user. There is
-no cross-project `depends_on`, so retry database connections on boot.
+Credentials come from Infisical; run the app's Compose commands through
+`infisical run` (or copy the Makefile into the app) as well, or put the same
+values in the app's own `.env` via `${VAR}`. Prefer a dedicated,
+least-privilege database user. There is no cross-project `depends_on`, so retry
+database connections on boot.
 
 ## Publish through Traefik
 
@@ -195,7 +221,7 @@ Router ids must be unique; existing routers are `dashboard`, `portainer`,
 
 - [ ] App is on the external `infrastructure` network.
 - [ ] Database URLs use container names, plaintext, with no `ports:`.
-- [ ] Secrets come from the app's own `.env` (`$` written as `$$`).
+- [ ] Secrets are injected with `infisical run`, not written to `.env`.
 - [ ] Traefik labels and the app's DNS record are in place.
 - [ ] The app retries its database connection on boot.
 
