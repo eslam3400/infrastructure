@@ -1,4 +1,4 @@
-# workspace
+# infrastructure
 
 Two mutually exclusive Docker Compose stacks for a self-hosted development
 workspace. Both run the same data services (Portainer, DBgate, PostgreSQL,
