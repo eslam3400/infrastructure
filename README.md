@@ -1,17 +1,18 @@
 # infrastructure
 
-Two mutually exclusive Docker Compose stacks for a self-hosted development
-workspace. Both run the same data services (Portainer, DBgate, PostgreSQL,
+Two mutually exclusive Docker Compose stacks for self-hosted infrastructure.
+Both run the same data services (Portainer, DBgate, PostgreSQL,
 MongoDB, Redis, RustFS) and one disposable **sandbox** for AI agents; only the
 server stack includes Traefik.
 
 | Stack  | Compose file         | Project          | Access                                |
 |--------|----------------------|------------------|---------------------------------------|
 | Server | `compose.yaml`       | `infrastructure` | Traefik + HTTPS at `<name>.${DOMAIN}` |
-| Local  | `compose.local.yaml` | `workspace`      | localhost ports, no TLS/Traefik       |
+| Local  | `compose.local.yaml` | `infrastructure` | localhost ports, no TLS/Traefik       |
 
-Run only one stack at a time — they reuse container names and host ports. Every
-image is pinned to an exact version; update the pins deliberately.
+Run only one stack at a time — they share the project name, container names,
+network and host ports. Every image is pinned to an exact version; update the
+pins deliberately.
 
 ## Layout
 
@@ -78,7 +79,7 @@ Reset the local sandbox (container + state volume):
 
 ```bash
 docker compose -f compose.local.yaml rm -sf sandbox
-docker volume rm workspace_sandbox_data
+docker volume rm infrastructure_sandbox_data
 docker compose -f compose.local.yaml up -d sandbox
 ```
 
@@ -228,5 +229,6 @@ Router ids must be unique; existing routers are `dashboard`, `portainer`,
 # Maintenance
 
 All state is in named volumes. Back up with a volume tarball or logical dumps
-(`pg_dumpall`, `mongodump`) before changing pinned image versions. Volumes use
-the project prefix: `infrastructure_*` on the server, `workspace_*` locally.
+(`pg_dumpall`, `mongodump`) before changing pinned image versions. Both stacks
+use the project name `infrastructure`, so volumes use the `infrastructure_*`
+prefix everywhere.
